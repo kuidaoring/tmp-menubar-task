@@ -9,7 +9,10 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import stylesheet from "./tailwind.css";
+
 export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: stylesheet },
   ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
 ];
 
@@ -23,7 +26,9 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Outlet />
+        <div className="text-sm">
+          <Outlet />
+        </div>
         <ScrollRestoration />
         <Scripts />
         <LiveReload />
