@@ -1,3 +1,14 @@
+import {
+  Day,
+  addMonths,
+  getDay,
+  isSameMonth,
+  lastDayOfMonth,
+  nextDay,
+  parseISO,
+  setDate,
+  startOfToday,
+} from "date-fns";
 import { nanoid } from "nanoid";
 
 type TaskMutation = {
@@ -9,6 +20,7 @@ type TaskMutation = {
   memo?: string;
   steps?: Step[];
   repeat?: Repeat;
+  repeatCreated?: boolean;
 };
 
 export type Task = TaskMutation & {
@@ -19,6 +31,7 @@ export type Task = TaskMutation & {
   createdAt: string;
   memo: string;
   steps: Step[];
+  repeatCreated: boolean;
 };
 
 export type Repeat = Weekly | Monthly;
@@ -48,14 +61,15 @@ export const EveryDay: DayOfTheWeek[] = [
   "thursday",
   "friday",
   "saturday",
-];
+] as const;
+
 export const WeekDay: DayOfTheWeek[] = [
   "monday",
   "tuesday",
   "wednesday",
   "thursday",
   "friday",
-];
+] as const;
 
 export function isRepeatEveryday(repeat?: Repeat) {
   if (!repeat) {
@@ -90,24 +104,25 @@ export function isRepeatWeekday(repeat?: Repeat) {
   return false;
 }
 
-export function japaneseDayOfTheWeek(day: DayOfTheWeek) {
-  switch (day) {
-    case "sunday":
-      return "日曜日";
-    case "monday":
-      return "月曜日";
-    case "tuesday":
-      return "火曜日";
-    case "wednesday":
-      return "水曜日";
-    case "thursday":
-      return "木曜日";
-    case "friday":
-      return "金曜日";
-    case "saturday":
-      return "土曜日";
-  }
-}
+export const japaneseDayOfTheWeekMap: Record<DayOfTheWeek, string> = {
+  sunday: "日曜日",
+  monday: "月曜日",
+  tuesday: "火曜日",
+  wednesday: "水曜日",
+  thursday: "木曜日",
+  friday: "金曜日",
+  saturday: "土曜日",
+} as const;
+
+const dayNumberMap: Record<DayOfTheWeek, Day> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+} as const;
 
 export type StepMutation = {
   id?: string;
@@ -141,6 +156,10 @@ const fakeTasks = {
     if (!task) {
       return null;
     }
+    if (values.completed === true && task.repeat && !task.repeatCreated) {
+      await fakeTasks.createRepeatNextTask(task);
+      values.repeatCreated = true;
+    }
     const updatedTask = { ...task, ...values };
     fakeTasks.records[id] = updatedTask;
     return updatedTask;
@@ -154,6 +173,7 @@ const fakeTasks = {
     const createdAt = new Date().toISOString();
     const memo = values.memo || "";
     const steps = values.steps || [];
+    const repeatCreated = false;
     this.records[id] = {
       ...values,
       id,
@@ -163,8 +183,59 @@ const fakeTasks = {
       createdAt,
       memo,
       steps,
+      repeatCreated,
     };
     return this.records[id];
+  },
+
+  async createRepeatNextTask(task: Task) {
+    const nextTask = {
+      ...task,
+      id: nanoid(),
+      completed: false,
+      isToday: false,
+      steps: structuredClone(task.steps).map((step) => {
+        return { ...step, id: nanoid(), completed: false };
+      }),
+    };
+
+    const baseDueDate = parseISO(
+      nextTask.dueDate ?? startOfToday().toISOString()
+    );
+    if (nextTask.repeat?.type === "monthly") {
+      if (nextTask.repeat?.days.length < 1) {
+        return;
+      }
+      let dueDate = setDate(
+        addMonths(baseDueDate, 1),
+        nextTask.repeat?.days[0]
+      );
+      if (!isSameMonth(dueDate, addMonths(baseDueDate, 1))) {
+        dueDate = lastDayOfMonth(addMonths(baseDueDate, 1));
+      }
+      nextTask.dueDate = dueDate.toISOString();
+    }
+    if (nextTask.repeat?.type === "weekly") {
+      if (nextTask.repeat?.dayOfTheWeeks.length < 1) {
+        return;
+      }
+      nextTask.repeat?.dayOfTheWeeks.length > 0;
+      const dueDateDay = getDay(baseDueDate);
+      let nextDayNumber = nextTask.repeat.dayOfTheWeeks
+        .map((day) => dayNumberMap[day])
+        .find((dayNumber) => dayNumber > dueDateDay);
+      if (nextDayNumber === undefined) {
+        nextDayNumber = nextTask.repeat.dayOfTheWeeks
+          .slice()
+          .map((day) => dayNumberMap[day])
+          .find((dayNumber) => dayNumber < dueDateDay);
+      }
+      if (nextDayNumber === undefined) {
+        return;
+      }
+      nextTask.dueDate = nextDay(baseDueDate, nextDayNumber).toISOString();
+    }
+    fakeTasks.create(nextTask);
   },
 
   async delete(id: string) {

@@ -10,7 +10,7 @@ import {
   getTask,
   isRepeatEveryday,
   isRepeatWeekday,
-  japaneseDayOfTheWeek,
+  japaneseDayOfTheWeekMap,
   updateStep,
   updateTask,
 } from "../data";
@@ -558,6 +558,7 @@ export default function Index() {
                             <label
                               htmlFor={`repeat-${day.value}`}
                               className="inline-block p-1 has-[:checked]:bg-blue-500 has-[:checked]:text-white"
+                              key={`repeat-${day.value}`}
                             >
                               {day.label}
                               <input
@@ -586,18 +587,19 @@ export default function Index() {
                         毎月
                       </label>
                       <div className="hidden peer-checked:block mt-1 mb-2 ml-5">
-                        <select name="everymonth-day" className="rounded py-1">
+                        <select
+                          name="everymonth-day"
+                          className="rounded py-1"
+                          defaultValue={
+                            task.repeat?.type === "monthly"
+                              ? task.repeat?.days[0]
+                              : undefined
+                          }
+                        >
                           {Array.from({ length: 31 }, (_, i) => i + 1).map(
                             (day) => {
                               return (
-                                <option
-                                  key={day}
-                                  value={day}
-                                  selected={
-                                    task.repeat?.type === "monthly" &&
-                                    task.repeat?.days.includes(day)
-                                  }
-                                >
+                                <option key={day} value={day}>
                                   {day}日
                                 </option>
                               );
@@ -732,7 +734,7 @@ function getRepeatLabel(repeat?: Repeat) {
     <>
       毎週
       <div className="text-xs text-gray-400">
-        {repeat.dayOfTheWeeks.map((d) => japaneseDayOfTheWeek(d)).join(",")}
+        {repeat.dayOfTheWeeks.map((d) => japaneseDayOfTheWeekMap[d]).join(",")}
       </div>
     </>
   );
