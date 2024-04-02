@@ -147,7 +147,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   }
 };
 
-export default function Index() {
+export default function Task() {
   const { task } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const completed = fetcher.formData
@@ -164,8 +164,13 @@ export default function Index() {
     navigation.formData?.get("type") === "addStep";
   const addStepFormRef = useRef<HTMLFormElement>(null);
   const addStepinputRef = useRef<HTMLInputElement>(null);
+  const [isFirstUpdateStep, setIsFirstUpdateStep] = useState(true);
   useEffect(() => {
     if (!isAddingStep) {
+      if (isFirstUpdateStep) {
+        setIsFirstUpdateStep(false);
+        return;
+      }
       addStepFormRef.current?.reset();
       addStepinputRef.current?.focus();
     }
