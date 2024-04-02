@@ -3,11 +3,13 @@ import {
   addMonths,
   getDay,
   isSameMonth,
+  isToday,
   lastDayOfMonth,
   nextDay,
   parseISO,
   setDate,
   startOfToday,
+  startOfYesterday,
 } from "date-fns";
 import { nanoid } from "nanoid";
 
@@ -16,6 +18,7 @@ type TaskMutation = {
   title?: string;
   dueDate?: string;
   isToday?: boolean;
+  isTodayUpdatedAt?: string;
   completed?: boolean;
   memo?: string;
   steps?: Step[];
@@ -27,6 +30,7 @@ export type Task = TaskMutation & {
   id: string;
   title: string;
   isToday: boolean;
+  isTodayUpdatedAt: string;
   completed: boolean;
   createdAt: string;
   memo: string;
@@ -156,9 +160,12 @@ const fakeTasks = {
     if (!task) {
       return null;
     }
-    if (values.completed === true && task.repeat && !task.repeatCreated) {
-      await fakeTasks.createRepeatNextTask(task);
-      values.repeatCreated = true;
+    if (values.completed === true) {
+      values.isTodayUpdatedAt = new Date().toISOString();
+      if (task.repeat && !task.repeatCreated) {
+        await fakeTasks.createRepeatNextTask(task);
+        values.repeatCreated = true;
+      }
     }
     const updatedTask = { ...task, ...values };
     fakeTasks.records[id] = updatedTask;
@@ -169,6 +176,8 @@ const fakeTasks = {
     const id = values.id || nanoid();
     const title = values.title || "";
     const isToday = values.isToday || false;
+    const isTodayUpdatedAt =
+      values.isTodayUpdatedAt || new Date().toISOString();
     const completed = values.completed || false;
     const createdAt = new Date().toISOString();
     const memo = values.memo || "";
@@ -179,6 +188,7 @@ const fakeTasks = {
       id,
       title,
       isToday,
+      isTodayUpdatedAt,
       completed,
       createdAt,
       memo,
@@ -292,8 +302,18 @@ const fakeTasks = {
   },
 };
 
-export async function getTasks() {
-  return fakeTasks.getAll();
+export async function getTasks(filterToday: boolean) {
+  return fakeTasks.getAll().then((tasks) => {
+    if (!filterToday) {
+      return tasks;
+    }
+    return tasks.filter((task) => {
+      const isTaskToday =
+        task.isToday && isToday(parseISO(task.isTodayUpdatedAt));
+      const isTaskDueToday = task.dueDate && isToday(parseISO(task.dueDate));
+      return isTaskToday || isTaskDueToday;
+    });
+  });
 }
 
 export async function getTask(id: string) {
@@ -364,7 +384,7 @@ export async function deleteStep(id: string, stepId: string) {
   },
   {
     title: "task タイトル3",
-    isToday: true,
+    isToday: false,
     dueDate: new Date().toISOString(),
   },
   {
@@ -401,6 +421,7 @@ export async function deleteStep(id: string, stepId: string) {
   {
     title: "task タイトル7",
     isToday: true,
+    isTodayUpdatedAt: startOfYesterday().toISOString(),
     repeat: {
       type: "monthly",
       days: [10],

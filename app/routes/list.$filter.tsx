@@ -21,10 +21,7 @@ export const meta: MetaFunction = () => {
 };
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-  const tasks = await getTasks();
-  if (params.filter === "today") {
-    return json({ tasks: tasks.filter((task) => task.isToday) });
-  }
+  const tasks = await getTasks(params.filter === "today");
   return json({ tasks });
 };
 
