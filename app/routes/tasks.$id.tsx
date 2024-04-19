@@ -12,9 +12,9 @@ import {
   EveryDay,
   Repeat,
   WeekDay,
+  getRepeatLabel,
   isRepeatEveryday,
   isRepeatWeekday,
-  japaneseDayOfTheWeekMap,
 } from "~/task";
 import {
   Form,
@@ -370,7 +370,7 @@ export default function Task() {
                   <input
                     type="text"
                     name="title"
-                    className="p-1 w-full bg-transparent border-none fucus:ring-0 text-sm"
+                    className="p-1 w-full bg-transparent border-none fucus:ring-0 text-sm placeholder-gray-400"
                     placeholder="ステップを追加"
                     ref={addStepinputRef}
                   />
@@ -410,7 +410,7 @@ export default function Task() {
               isClearable
               locale={ja}
               dateFormat={getFormat(dueDate)}
-              className="p-1 pl-0 grow w-full bg-transparent border-none focus:ring-0 text-sm"
+              className="p-1 pl-0 grow w-full bg-transparent border-none focus:ring-0 text-sm placeholder-gray-400"
               ref={datePickerRef}
             >
               <button
@@ -445,7 +445,7 @@ export default function Task() {
               onClick={() => repeatDialogRef.current?.showModal()}
               className={`text-left ${!task.repeat ? "text-gray-400" : ""}`}
             >
-              {getRepeatLabel(task.repeat)}
+              <RepeatLabel repeat={task.repeat} />
             </button>
             <dialog
               ref={repeatDialogRef}
@@ -717,32 +717,15 @@ function submitDueDate(
   );
 }
 
-function getRepeatLabel(repeat?: Repeat) {
-  if (!repeat) {
+function RepeatLabel({ repeat }: { repeat?: Repeat }) {
+  const label = getRepeatLabel(repeat);
+  if (!label) {
     return "繰り返しを設定";
-  }
-  if (repeat.type === "monthly") {
-    return (
-      <>
-        毎月
-        <div className="text-xs text-gray-400">
-          {repeat.days.map((d) => `${d}日`).join(",")}
-        </div>
-      </>
-    );
-  }
-  if (isRepeatEveryday(repeat)) {
-    return "毎日";
-  }
-  if (isRepeatWeekday(repeat)) {
-    return "平日";
   }
   return (
     <>
-      毎週
-      <div className="text-xs text-gray-400">
-        {repeat.dayOfTheWeeks.map((d) => japaneseDayOfTheWeekMap[d]).join(",")}
-      </div>
+      {label.main}
+      <div className="text-xs text-gray-400">{label.sub}</div>
     </>
   );
 }

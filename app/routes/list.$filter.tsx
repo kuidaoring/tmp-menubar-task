@@ -12,7 +12,7 @@ import {
   useParams,
 } from "@remix-run/react";
 import { useEffect, useRef } from "react";
-import { Task } from "~/task";
+import { Task, getRepeatLabel } from "~/task";
 
 export const meta: MetaFunction = () => {
   return [
@@ -165,7 +165,15 @@ function TaskList({ tasks, isAllPage }: TaskListProps) {
                     <span className="text-center px-1">📝 メモ</span>
                   ) : null}
                   {task.repeat ? (
-                    <span className="text-center px-1">🔄</span>
+                    <span className="text-center px-1">
+                      🔄{" "}
+                      {((t) => {
+                        const label = getRepeatLabel(t.repeat);
+                        return label
+                          ? `${label.main}${label.sub ? `(${label.sub})` : ""}`
+                          : null;
+                      })(task)}
+                    </span>
                   ) : null}
                 </p>
               </div>

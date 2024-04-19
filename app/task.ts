@@ -93,6 +93,32 @@ export function isRepeatWeekday(repeat?: Repeat) {
   return false;
 }
 
+export function getRepeatLabel(repeat?: Repeat) {
+  if (!repeat) {
+    return null;
+  }
+  if (repeat.type === "monthly") {
+    return {
+      main: "毎月",
+      sub: repeat.days.map((d) => `${d}日`).join(","),
+    };
+  }
+  if (isRepeatEveryday(repeat)) {
+    return {
+      main: "毎日",
+    };
+  }
+  if (isRepeatWeekday(repeat)) {
+    return {
+      main: "平日",
+    };
+  }
+  return {
+    main: "毎週",
+    sub: repeat.dayOfTheWeeks.map((d) => japaneseDayOfTheWeekMap[d]).join(","),
+  };
+}
+
 export const japaneseDayOfTheWeekMap: Record<DayOfTheWeek, string> = {
   sunday: "日曜日",
   monday: "月曜日",
