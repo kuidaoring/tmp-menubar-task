@@ -2,18 +2,20 @@ import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import {
-  EveryDay,
-  Repeat,
-  WeekDay,
   createStep,
   deleteStep,
   getTask,
+  updateStep,
+  updateTask,
+} from "../.server/db";
+import {
+  EveryDay,
+  Repeat,
+  WeekDay,
   isRepeatEveryday,
   isRepeatWeekday,
   japaneseDayOfTheWeekMap,
-  updateStep,
-  updateTask,
-} from "../data";
+} from "~/task";
 import {
   Form,
   useFetcher,

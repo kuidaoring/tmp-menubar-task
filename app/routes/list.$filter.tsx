@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { createTask, getTasks, updateTask } from "../data";
+import { createTask, getTasks, updateTask } from "../.server/db";
 import { formatDate } from "../dateFormat";
 import {
   Form,

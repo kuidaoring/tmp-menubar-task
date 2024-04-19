@@ -1,5 +1,4 @@
 import {
-  Day,
   addMonths,
   getDay,
   isSameMonth,
@@ -9,136 +8,10 @@ import {
   parseISO,
   setDate,
   startOfToday,
-  startOfYesterday,
 } from "date-fns";
 import { nanoid } from "nanoid";
-
-type TaskMutation = {
-  id?: string;
-  title?: string;
-  dueDate?: string;
-  isToday?: boolean;
-  isTodayUpdatedAt?: string;
-  completed?: boolean;
-  memo?: string;
-  steps?: Step[];
-  repeat?: Repeat;
-  repeatCreated?: boolean;
-};
-
-export type Task = TaskMutation & {
-  id: string;
-  title: string;
-  isToday: boolean;
-  isTodayUpdatedAt: string;
-  completed: boolean;
-  createdAt: string;
-  memo: string;
-  steps: Step[];
-  repeatCreated: boolean;
-};
-
-export type Repeat = Weekly | Monthly;
-type Weekly = {
-  type: "weekly";
-  dayOfTheWeeks: DayOfTheWeek[];
-};
-type Monthly = {
-  type: "monthly";
-  days: number[];
-};
-
-export type DayOfTheWeek =
-  | "sunday"
-  | "monday"
-  | "tuesday"
-  | "wednesday"
-  | "thursday"
-  | "friday"
-  | "saturday";
-
-export const EveryDay: DayOfTheWeek[] = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-] as const;
-
-export const WeekDay: DayOfTheWeek[] = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-] as const;
-
-export function isRepeatEveryday(repeat?: Repeat) {
-  if (!repeat) {
-    return false;
-  }
-  if (repeat.type === "monthly") {
-    return false;
-  }
-  if (repeat.dayOfTheWeeks.length === 7) {
-    return true;
-  }
-  return false;
-}
-
-export function isRepeatWeekday(repeat?: Repeat) {
-  if (!repeat) {
-    return false;
-  }
-  if (repeat.type === "monthly") {
-    return false;
-  }
-  if (
-    repeat.dayOfTheWeeks.length === 5 &&
-    repeat.dayOfTheWeeks.includes("monday") &&
-    repeat.dayOfTheWeeks.includes("tuesday") &&
-    repeat.dayOfTheWeeks.includes("wednesday") &&
-    repeat.dayOfTheWeeks.includes("thursday") &&
-    repeat.dayOfTheWeeks.includes("friday")
-  ) {
-    return true;
-  }
-  return false;
-}
-
-export const japaneseDayOfTheWeekMap: Record<DayOfTheWeek, string> = {
-  sunday: "日曜日",
-  monday: "月曜日",
-  tuesday: "火曜日",
-  wednesday: "水曜日",
-  thursday: "木曜日",
-  friday: "金曜日",
-  saturday: "土曜日",
-} as const;
-
-const dayNumberMap: Record<DayOfTheWeek, Day> = {
-  sunday: 0,
-  monday: 1,
-  tuesday: 2,
-  wednesday: 3,
-  thursday: 4,
-  friday: 5,
-  saturday: 6,
-} as const;
-
-export type StepMutation = {
-  id?: string;
-  title?: string;
-  completed?: boolean;
-};
-
-export type Step = StepMutation & {
-  id: string;
-  title: string;
-  completed: boolean;
-};
+import cron from "node-cron";
+import { Task, TaskMutation, dayNumberMap, StepMutation } from "~/task";
 
 const fakeTasks = {
   records: {} as Record<string, Task>,
@@ -161,7 +34,6 @@ const fakeTasks = {
       return null;
     }
     if (values.completed === true) {
-      values.isTodayUpdatedAt = new Date().toISOString();
       if (task.repeat && !task.repeatCreated) {
         await fakeTasks.createRepeatNextTask(task);
         values.repeatCreated = true;
@@ -176,8 +48,6 @@ const fakeTasks = {
     const id = values.id || nanoid();
     const title = values.title || "";
     const isToday = values.isToday || false;
-    const isTodayUpdatedAt =
-      values.isTodayUpdatedAt || new Date().toISOString();
     const completed = values.completed || false;
     const createdAt = new Date().toISOString();
     const memo = values.memo || "";
@@ -188,7 +58,6 @@ const fakeTasks = {
       id,
       title,
       isToday,
-      isTodayUpdatedAt,
       completed,
       createdAt,
       memo,
@@ -308,10 +177,7 @@ export async function getTasks(filterToday: boolean) {
       return tasks;
     }
     return tasks.filter((task) => {
-      const isTaskToday =
-        task.isToday && isToday(parseISO(task.isTodayUpdatedAt));
-      const isTaskDueToday = task.dueDate && isToday(parseISO(task.dueDate));
-      return isTaskToday || isTaskDueToday;
+      return task.isToday;
     });
   });
 }
@@ -339,6 +205,24 @@ export async function deleteTask(id: string) {
   return fakeTasks.delete(id);
 }
 
+async function refreshIsTodayTasks() {
+  const toFalsePromises: Promise<Task | null>[] = [];
+  (await getTasks(true)).forEach((task) => {
+    toFalsePromises.push(updateTask(task.id, { isToday: false }));
+  });
+
+  const toTruePromises: Promise<Task | null>[] = [];
+  (await getTasks(false)).forEach((task) => {
+    if (task.dueDate && isToday(parseISO(task.dueDate))) {
+      toTruePromises.push(updateTask(task.id, { isToday: true }));
+    }
+  });
+  return {
+    toFalseCount: (await Promise.all(toFalsePromises)).length,
+    toTrueCount: (await Promise.all(toTruePromises)).length,
+  };
+}
+
 export async function createStep(id: string, title: string) {
   return fakeTasks.createStep(id, {
     title: title,
@@ -357,76 +241,98 @@ export async function deleteStep(id: string, stepId: string) {
   return fakeTasks.deleteStep(id, stepId);
 }
 
-[
-  {
-    title: "task タイトル1",
-    isToday: false,
-    steps: [
-      {
-        id: nanoid(),
-        title: "step タイトル1",
-        completed: false,
-      },
-      {
-        id: nanoid(),
-        title: "step タイトル2",
-        completed: true,
-      },
-    ],
-  },
-  {
-    title: "task タイトル2",
-    isToday: true,
-    repeat: {
-      type: "weekly",
-      dayOfTheWeeks: ["monday", "wednesday", "friday"],
+refreshIsTodayTasks().then(() => {
+  const cronTaskList = cron.getTasks();
+  for (let [key, value] of cronTaskList.entries()) {
+    if (key === "refreshIsTodayTasks") {
+      value.stop();
+      console.log(`stop existing cron task: ${key}`);
+    }
+  }
+
+  cron.schedule(
+    "0 0 * * *",
+    async () => {
+      const result = await refreshIsTodayTasks();
+      console.log(
+        `refresh isToday task. to false: ${result.toFalseCount}, to true: ${result.toTrueCount}`
+      );
     },
-  },
-  {
-    title: "task タイトル3",
-    isToday: false,
-    dueDate: new Date().toISOString(),
-  },
-  {
-    title: "task タイトル4",
-    isToday: true,
-    dueDate: new Date().toISOString(),
-    memo: "memo",
-    completed: true,
-  },
-  {
-    title: "task タイトル5",
-    isToday: true,
-    repeat: {
-      type: "weekly",
-      dayOfTheWeeks: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-    },
-  },
-  {
-    title: "task タイトル6",
-    isToday: true,
-    repeat: {
-      type: "weekly",
-      dayOfTheWeeks: [
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
+    {
+      name: "refreshIsTodayTasks",
+    }
+  );
+
+  [
+    {
+      title: "task タイトル1",
+      isToday: false,
+      steps: [
+        {
+          id: nanoid(),
+          title: "step タイトル1",
+          completed: false,
+        },
+        {
+          id: nanoid(),
+          title: "step タイトル2",
+          completed: true,
+        },
       ],
     },
-  },
-  {
-    title: "task タイトル7",
-    isToday: true,
-    isTodayUpdatedAt: startOfYesterday().toISOString(),
-    repeat: {
-      type: "monthly",
-      days: [10],
+    {
+      title: "task タイトル2",
+      isToday: true,
+      repeat: {
+        type: "weekly",
+        dayOfTheWeeks: ["monday", "wednesday", "friday"],
+      },
     },
-  },
-].forEach((task) => {
-  fakeTasks.create(task as TaskMutation);
+    {
+      title: "task タイトル3",
+      isToday: false,
+      dueDate: new Date().toISOString(),
+    },
+    {
+      title: "task タイトル4",
+      isToday: true,
+      dueDate: new Date().toISOString(),
+      memo: "memo",
+      completed: true,
+    },
+    {
+      title: "task タイトル5",
+      isToday: true,
+      repeat: {
+        type: "weekly",
+        dayOfTheWeeks: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      },
+    },
+    {
+      title: "task タイトル6",
+      isToday: true,
+      repeat: {
+        type: "weekly",
+        dayOfTheWeeks: [
+          "sunday",
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+        ],
+      },
+    },
+    {
+      title: "task タイトル7",
+      isToday: true,
+      repeat: {
+        type: "monthly",
+        days: [10],
+      },
+    },
+  ].forEach((task) => {
+    fakeTasks.create(task as TaskMutation);
+  });
 });
