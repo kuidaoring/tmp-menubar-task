@@ -12,6 +12,7 @@ import {
   useParams,
 } from "@remix-run/react";
 import { useEffect, useRef } from "react";
+import { Task } from "~/task";
 
 export const meta: MetaFunction = () => {
   return [
@@ -48,7 +49,6 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 
 export default function List() {
   const { tasks } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
   const params = useParams();
   const isAllPage = params.filter !== "today";
   const navigation = useNavigation();
@@ -64,6 +64,9 @@ export default function List() {
       createInputRef.current?.focus();
     }
   }, [isAdding]);
+
+  const completedTask = tasks.filter((task) => task.completed);
+  const notCompletedTask = tasks.filter((task) => !task.completed);
 
   return (
     <>
@@ -86,93 +89,113 @@ export default function List() {
         <p className="text-center m-10">
           {!isAllPage ? "今日の" : ""}タスクがありません
         </p>
-      ) : (
-        <ul className="divide-y">
-          {tasks.map((task) => {
-            const completed =
-              fetcher.formData && fetcher.formData.get("id") === task.id
-                ? fetcher.formData.get("completed") === "true"
-                : task.completed;
-            const isToday =
-              fetcher.formData && fetcher.formData.get("id") === task.id
-                ? fetcher.formData.get("isToday") === "true"
-                : task.isToday;
-            return (
-              <li className="flex flex-row py-1" key={task.id}>
-                <div className="flex-none w-10 flex justify-center">
-                  <fetcher.Form
-                    method="post"
-                    onChange={(event) => fetcher.submit(event.currentTarget)}
-                    className="self-center"
-                  >
-                    <input
-                      type="checkbox"
-                      className="rounded"
-                      name="completed"
-                      value="true"
-                      defaultChecked={completed}
-                    />
-                    <input type="hidden" name="type" value="toggleComplete" />
-                    <input type="hidden" name="id" value={task.id} />
-                  </fetcher.Form>
-                </div>
-                <Link className="flex-grow" to={`/tasks/${task.id}`}>
-                  <div className="flex-glow">
-                    <p
-                      className={`${
-                        task.completed ? "line-through text-gray-400" : ""
-                      }`}
-                    >
-                      {task.title}
-                    </p>
-                    <p className="divide-x text-xs">
-                      {task.dueDate ? (
-                        <span className="text-center px-1">
-                          🗓 {formatDate(task.dueDate)}
-                        </span>
-                      ) : null}
-                      {task.steps.length > 0 ? (
-                        <span className="text-center px-1">
-                          🎮 {task.steps.filter((s) => s.completed).length}/
-                          {task.steps.length}
-                        </span>
-                      ) : null}
-                      {task.memo ? (
-                        <span className="text-center px-1">📝 メモ</span>
-                      ) : null}
-                      {task.repeat ? (
-                        <span className="text-center px-1">🔄</span>
-                      ) : null}
-                    </p>
-                  </div>
-                </Link>
-                {isAllPage ? (
-                  <fetcher.Form
-                    method="post"
-                    onChange={(event) => fetcher.submit(event.currentTarget)}
-                    className="w-10 text-xs self-center text-center"
-                  >
-                    <label
-                      title="今日の予定に設定"
-                      className="contrast-0 has-[:checked]:contrast-100"
-                    >
-                      🚀
-                      <input
-                        type="checkbox"
-                        className="hidden"
-                        value="true"
-                        defaultChecked={isToday}
-                      />
-                      <input type="hidden" name="type" value="toggleIsToday" />
-                      <input type="hidden" name="id" value={task.id} />
-                    </label>
-                  </fetcher.Form>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      ) : null}
+      {notCompletedTask.length > 0 ? (
+        <TaskList tasks={notCompletedTask} isAllPage={isAllPage} />
+      ) : null}
+      {completedTask.length > 0 ? (
+        <>
+          <h2 className="p-2">✅ 完了済み</h2>
+          <TaskList tasks={completedTask} isAllPage={isAllPage} />
+        </>
+      ) : null}
     </>
+  );
+}
+
+type TaskListProps = {
+  tasks: Task[];
+  isAllPage: boolean;
+};
+
+function TaskList({ tasks, isAllPage }: TaskListProps) {
+  const fetcher = useFetcher();
+  return (
+    <ul className="divide-y">
+      {tasks.map((task) => {
+        const completed =
+          fetcher.formData && fetcher.formData.get("id") === task.id
+            ? fetcher.formData.get("completed") === "true"
+            : task.completed;
+        const isToday =
+          fetcher.formData && fetcher.formData.get("id") === task.id
+            ? fetcher.formData.get("isToday") === "true"
+            : task.isToday;
+        return (
+          <li className="flex flex-row py-1" key={task.id}>
+            <div className="flex-none w-10 flex justify-center">
+              <fetcher.Form
+                method="post"
+                onChange={(event) => fetcher.submit(event.currentTarget)}
+                className="self-center"
+              >
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  name="completed"
+                  value="true"
+                  defaultChecked={completed}
+                />
+                <input type="hidden" name="type" value="toggleComplete" />
+                <input type="hidden" name="id" value={task.id} />
+              </fetcher.Form>
+            </div>
+            <Link className="flex-grow" to={`/tasks/${task.id}`}>
+              <div className="flex-glow">
+                <p
+                  className={`${
+                    task.completed ? "line-through text-gray-400" : ""
+                  }`}
+                >
+                  {task.title}
+                </p>
+                <p className="divide-x text-xs">
+                  {task.dueDate ? (
+                    <span className="text-center px-1">
+                      🗓 {formatDate(task.dueDate)}
+                    </span>
+                  ) : null}
+                  {task.steps.length > 0 ? (
+                    <span className="text-center px-1">
+                      🎮 {task.steps.filter((s) => s.completed).length}/
+                      {task.steps.length}
+                    </span>
+                  ) : null}
+                  {task.memo ? (
+                    <span className="text-center px-1">📝 メモ</span>
+                  ) : null}
+                  {task.repeat ? (
+                    <span className="text-center px-1">🔄</span>
+                  ) : null}
+                </p>
+              </div>
+            </Link>
+            {isAllPage ? (
+              <fetcher.Form
+                method="post"
+                onChange={(event) => fetcher.submit(event.currentTarget)}
+                className="w-10 text-xs self-center text-center"
+              >
+                <label
+                  title="今日の予定に設定"
+                  className="contrast-0 has-[:checked]:contrast-100"
+                >
+                  🚀
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    name="isToday"
+                    value="true"
+                    defaultChecked={isToday}
+                  />
+                  <input type="hidden" name="type" value="toggleIsToday" />
+                  <input type="hidden" name="id" value={task.id} />
+                </label>
+              </fetcher.Form>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
