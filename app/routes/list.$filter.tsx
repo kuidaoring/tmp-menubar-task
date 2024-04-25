@@ -63,6 +63,7 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
     case "all":
     default:
       taskGroups.push({
+        title: "未完了",
         tasks: tasks.filter((task) => !task.completed),
       });
       taskGroups.push({
@@ -141,7 +142,9 @@ export default function List() {
       {taskGroups.map((group) => {
         return (
           <>
-            {group.title ? <h2 className="p-2">{group.title}</h2> : null}
+            {group.title ? (
+              <h2 className="p-2 border-b">{group.title}</h2>
+            ) : null}
             <TaskList tasks={group.tasks} isAllPage={isAllPage} />
           </>
         );

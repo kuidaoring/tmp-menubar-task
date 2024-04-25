@@ -185,7 +185,7 @@ export async function getTasks(filterType: FilterType) {
     }
     if (filterType === "planned") {
       return tasks.filter((task) => {
-        return task.dueDate;
+        return !task.completed && task.dueDate;
       });
     }
     return tasks;
