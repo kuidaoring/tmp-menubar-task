@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { createTask, getTasks, updateTask } from "../.server/db";
+import { createTask, getTasks, isValidFilter, updateTask } from "../.server/db";
 import { formatDate } from "../dateFormat";
 import {
   Form,
@@ -13,6 +13,7 @@ import {
 } from "@remix-run/react";
 import { useEffect, useRef } from "react";
 import { Task, getRepeatLabel } from "~/task";
+import { compareAsc, startOfToday } from "date-fns";
 
 export const meta: MetaFunction = () => {
   return [
@@ -21,16 +22,66 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+type Group = { title?: string; tasks: Task[] };
+
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-  const tasks = await getTasks(params.filter === "today");
-  return json({ tasks });
+  const filter = isValidFilter(params.filter) ? params.filter : "all";
+  const tasks = await getTasks(filter);
+
+  const taskGroups: Group[] = [];
+  switch (filter) {
+    case "planned":
+      tasks
+        .map((task) => {
+          return {
+            title: task.dueDate ? formatDate(task.dueDate) : "期限なし",
+            task: task,
+          };
+        })
+        .forEach((task) => {
+          const group = taskGroups.find((group) => group.title === task.title);
+          if (group) {
+            group.tasks.push(task.task);
+          } else {
+            taskGroups.push({
+              title: task.title,
+              tasks: [task.task],
+            });
+          }
+        });
+      taskGroups.sort((a, b) => {
+        if (!a.tasks[0].dueDate || !b.tasks[0].dueDate) {
+          return 0;
+        }
+        return compareAsc(
+          new Date(a.tasks[0].dueDate),
+          new Date(b.tasks[0].dueDate)
+        );
+      });
+      break;
+    case "today":
+    case "all":
+    default:
+      taskGroups.push({
+        tasks: tasks.filter((task) => !task.completed),
+      });
+      taskGroups.push({
+        title: "✅ 完了済み",
+        tasks: tasks.filter((task) => task.completed),
+      });
+      break;
+  }
+  return json({ taskGroups });
 };
 
 export const action = async ({ params, request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   if (formData.get("type") === "create") {
+    const title = formData.get("title") as string;
     const isToday = params.filter === "today";
-    const task = await createTask(formData.get("title") as string, isToday);
+    const dueDate =
+      params.filter === "planned" ? startOfToday().toISOString() : undefined;
+    const task = await createTask({ title, isToday, dueDate });
     return json({ task });
   }
   if (formData.get("type") === "toggleComplete") {
@@ -48,7 +99,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
 };
 
 export default function List() {
-  const { tasks } = useLoaderData<typeof loader>();
+  const { taskGroups } = useLoaderData<typeof loader>();
   const params = useParams();
   const isAllPage = params.filter !== "today";
   const navigation = useNavigation();
@@ -64,9 +115,6 @@ export default function List() {
       createInputRef.current?.focus();
     }
   }, [isAdding]);
-
-  const completedTask = tasks.filter((task) => task.completed);
-  const notCompletedTask = tasks.filter((task) => !task.completed);
 
   return (
     <>
@@ -85,20 +133,19 @@ export default function List() {
           </button>
         </div>
       </Form>
-      {tasks.length === 0 ? (
+      {taskGroups.length === 0 ? (
         <p className="text-center m-10">
           {!isAllPage ? "今日の" : ""}タスクがありません
         </p>
       ) : null}
-      {notCompletedTask.length > 0 ? (
-        <TaskList tasks={notCompletedTask} isAllPage={isAllPage} />
-      ) : null}
-      {completedTask.length > 0 ? (
-        <>
-          <h2 className="p-2">✅ 完了済み</h2>
-          <TaskList tasks={completedTask} isAllPage={isAllPage} />
-        </>
-      ) : null}
+      {taskGroups.map((group) => {
+        return (
+          <>
+            {group.title ? <h2 className="p-2">{group.title}</h2> : null}
+            <TaskList tasks={group.tasks} isAllPage={isAllPage} />
+          </>
+        );
+      })}
     </>
   );
 }

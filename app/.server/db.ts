@@ -171,14 +171,24 @@ const fakeTasks = {
   },
 };
 
-export async function getTasks(filterToday: boolean) {
+export const Filters = ["all", "today", "planned"] as const;
+export function isValidFilter(type?: string): type is FilterType {
+  return Filters.includes(type as FilterType);
+}
+export type FilterType = (typeof Filters)[number];
+export async function getTasks(filterType: FilterType) {
   return fakeTasks.getAll().then((tasks) => {
-    if (!filterToday) {
-      return tasks;
+    if (filterType === "today") {
+      return tasks.filter((task) => {
+        return task.isToday;
+      });
     }
-    return tasks.filter((task) => {
-      return task.isToday;
-    });
+    if (filterType === "planned") {
+      return tasks.filter((task) => {
+        return task.dueDate;
+      });
+    }
+    return tasks;
   });
 }
 
@@ -186,11 +196,11 @@ export async function getTask(id: string) {
   return fakeTasks.get(id);
 }
 
-export async function createTask(title: string, isToday: boolean) {
-  return fakeTasks.create({
-    title: title,
-    isToday: isToday,
-  });
+export async function createTask(values: TaskMutation) {
+  if (!values.title) {
+    return null;
+  }
+  return fakeTasks.create(values);
 }
 
 export async function updateTask(id: string, values: TaskMutation) {
@@ -207,12 +217,12 @@ export async function deleteTask(id: string) {
 
 async function refreshIsTodayTasks() {
   const toFalsePromises: Promise<Task | null>[] = [];
-  (await getTasks(true)).forEach((task) => {
+  (await getTasks("today")).forEach((task) => {
     toFalsePromises.push(updateTask(task.id, { isToday: false }));
   });
 
   const toTruePromises: Promise<Task | null>[] = [];
-  (await getTasks(false)).forEach((task) => {
+  (await getTasks("all")).forEach((task) => {
     if (task.dueDate && isToday(parseISO(task.dueDate))) {
       toTruePromises.push(updateTask(task.id, { isToday: true }));
     }

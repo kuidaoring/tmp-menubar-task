@@ -37,6 +37,20 @@ export default function Index() {
                 🎮 タスク
               </NavLink>
             </li>
+            <li className="border-b border-gray-200">
+              <NavLink
+                to="/list/planned"
+                className={({ isActive }) => {
+                  return `flex group grow p-2 border-b-2 rounded-t-lg ${
+                    isActive
+                      ? "text-blue-600 border-blue-600 active"
+                      : "border-transparent hover:text-gray-600 hover:border-gray-300"
+                  }`;
+                }}
+              >
+                🗓 今後の予定
+              </NavLink>
+            </li>
           </ul>
         </div>
       </aside>
