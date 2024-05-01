@@ -1,5 +1,7 @@
 import {
   addMonths,
+  format,
+  formatISO,
   getDay,
   isSameMonth,
   isToday,
@@ -8,10 +10,13 @@ import {
   parseISO,
   setDate,
   startOfToday,
+  startOfYesterday,
 } from "date-fns";
 import { nanoid } from "nanoid";
 import cron from "node-cron";
 import { Task, TaskMutation, dayNumberMap, StepMutation } from "~/task";
+
+let lastRefreshed = startOfYesterday();
 
 const fakeTasks = {
   records: {} as Record<string, Task>,
@@ -261,12 +266,20 @@ refreshIsTodayTasks().then(() => {
   }
 
   cron.schedule(
-    "0 0 * * *",
+    "* * * * *",
     async () => {
+      if (isToday(lastRefreshed)) {
+        return;
+      }
       const result = await refreshIsTodayTasks();
       console.log(
-        `refresh isToday task. to false: ${result.toFalseCount}, to true: ${result.toTrueCount}`
+        `lastRefreshed: ${formatISO(
+          lastRefreshed
+        )}. refresh isToday task. to false: ${result.toFalseCount}, to true: ${
+          result.toTrueCount
+        }`
       );
+      lastRefreshed = new Date();
     },
     {
       name: "refreshIsTodayTasks",
