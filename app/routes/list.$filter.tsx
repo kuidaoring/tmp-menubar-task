@@ -1,5 +1,8 @@
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  MetaFunction,
+} from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { createTask, getTasks, isValidFilter, updateTask } from "../.server/db";
 import { formatDate, getFormat } from "../dateFormat";
@@ -69,14 +72,18 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
     case "today":
     case "all":
     default:
-      taskGroups.push({
-        title: "未完了",
-        tasks: tasks.filter((task) => !task.completed),
-      });
-      taskGroups.push({
-        title: "✅ 完了済み",
-        tasks: tasks.filter((task) => task.completed),
-      });
+      if (tasks.filter((task) => !task.completed).length > 0) {
+        taskGroups.push({
+          title: "未完了",
+          tasks: tasks.filter((task) => !task.completed),
+        });
+      }
+      if (tasks.filter((task) => task.completed).length > 0) {
+        taskGroups.push({
+          title: "✅ 完了済み",
+          tasks: tasks.filter((task) => task.completed),
+        });
+      }
       break;
   }
   return json({ taskGroups });
