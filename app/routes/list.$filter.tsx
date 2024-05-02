@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { createTask, getTasks, isValidFilter, updateTask } from "../.server/db";
-import { formatDate } from "../dateFormat";
+import { formatDate, getFormat } from "../dateFormat";
 import {
   Form,
   Link,
@@ -11,9 +11,16 @@ import {
   useNavigation,
   useParams,
 } from "@remix-run/react";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { Task, getRepeatLabel } from "~/task";
 import { compareAsc, startOfToday } from "date-fns";
+
+import ReactDatePicker from "react-datepicker";
+const DatePicker =
+  (ReactDatePicker as unknown as { default: typeof ReactDatePicker }).default ??
+  ReactDatePicker;
+import "react-datepicker/dist/react-datepicker.css";
+import { ja } from "date-fns/locale";
 
 export const meta: MetaFunction = () => {
   return [
@@ -79,9 +86,8 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   if (formData.get("type") === "create") {
     const title = formData.get("title") as string;
-    const isToday = params.filter === "today";
-    const dueDate =
-      params.filter === "planned" ? startOfToday().toISOString() : undefined;
+    const isToday = formData.get("isToday") === "true";
+    const dueDate = formData.get("dueDate") as string;
     const task = await createTask({ title, isToday, dueDate });
     return json({ task });
   }
@@ -99,16 +105,26 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   }
 };
 
-export default function List() {
+export default function ListPage() {
+  const params = useParams();
+  return <List key={params.filter} />;
+}
+
+function List() {
   const { taskGroups } = useLoaderData<typeof loader>();
   const params = useParams();
-  const isAllPage = params.filter !== "today";
+  const isTodayPage = params.filter === "today";
+  const isPlannedPage = params.filter === "planned";
   const navigation = useNavigation();
   const isAdding =
     navigation.state === "submitting" &&
     navigation.formData?.get("type") === "create";
   const createFormRef = useRef<HTMLFormElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
+
+  const [dueDate, setDueDate] = useState<Date | null>(
+    isPlannedPage ? startOfToday() : null
+  );
 
   useEffect(() => {
     if (!isAdding) {
@@ -133,10 +149,47 @@ export default function List() {
             ➕
           </button>
         </div>
+        <div className="flex flex-row border-b p-1">
+          <label
+            title="今日の予定に設定"
+            className="mx-1 cursor-pointer border-b-2 border-transparent has-[:checked]:border-blue-600"
+          >
+            🚀
+            <input
+              type="checkbox"
+              className="hidden"
+              name="isToday"
+              value="true"
+              defaultChecked={isTodayPage}
+            />
+          </label>
+          <input
+            type="hidden"
+            name="dueDate"
+            value={dueDate ? dueDate.toISOString() : ""}
+          />
+          <DatePicker
+            onChange={(date) => {
+              setDueDate(date);
+            }}
+            selected={dueDate}
+            isClearable
+            locale={ja}
+            dateFormat={getFormat(dueDate)}
+            customInput={<DueDatePicker />}
+          >
+            <button className="mr-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">
+              今日
+            </button>
+            <button className="mr-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">
+              翌営業日
+            </button>
+          </DatePicker>
+        </div>
       </Form>
       {taskGroups.length === 0 ? (
         <p className="text-center m-10">
-          {!isAllPage ? "今日の" : ""}タスクがありません
+          {isTodayPage ? "今日の" : ""}タスクがありません
         </p>
       ) : null}
       {taskGroups.map((group) => {
@@ -145,7 +198,7 @@ export default function List() {
             {group.title ? (
               <h2 className="p-2 border-b">{group.title}</h2>
             ) : null}
-            <TaskList tasks={group.tasks} isAllPage={isAllPage} />
+            <TaskList tasks={group.tasks} isTodayPage={isTodayPage} />
           </>
         );
       })}
@@ -153,12 +206,31 @@ export default function List() {
   );
 }
 
-type TaskListProps = {
-  tasks: Task[];
-  isAllPage: boolean;
-};
+type ButtonProps = JSX.IntrinsicElements["button"];
+const DueDatePicker = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ value, onClick }, ref) => {
+    return (
+      <button
+        onClick={onClick}
+        ref={ref}
+        type="button"
+        className={`mx-1 border-b-2 ${
+          value ? "border-blue-600" : "border-transparent"
+        }`}
+      >
+        🗓{value ? <span className="mr-6">{value}</span> : null}
+      </button>
+    );
+  }
+);
 
-function TaskList({ tasks, isAllPage }: TaskListProps) {
+function TaskList({
+  tasks,
+  isTodayPage,
+}: {
+  tasks: Task[];
+  isTodayPage: boolean;
+}) {
   const fetcher = useFetcher();
   return (
     <ul className="divide-y">
@@ -228,7 +300,7 @@ function TaskList({ tasks, isAllPage }: TaskListProps) {
                 </p>
               </div>
             </Link>
-            {isAllPage ? (
+            {!isTodayPage ? (
               <fetcher.Form
                 method="post"
                 onChange={(event) => fetcher.submit(event.currentTarget)}
@@ -236,7 +308,7 @@ function TaskList({ tasks, isAllPage }: TaskListProps) {
               >
                 <label
                   title="今日の予定に設定"
-                  className="contrast-0 has-[:checked]:contrast-100"
+                  className="cursor-pointer contrast-0 has-[:checked]:contrast-100"
                 >
                   🚀
                   <input
