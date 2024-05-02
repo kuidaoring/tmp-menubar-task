@@ -22,6 +22,7 @@ import {
   useLoaderData,
   useNavigate,
   useNavigation,
+  useParams,
 } from "@remix-run/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -149,7 +150,12 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   }
 };
 
-export default function Task() {
+export default function TaskPage() {
+  const params = useParams();
+  return <Task key={params.id} />;
+}
+
+function Task() {
   const { task } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const completed = fetcher.formData
@@ -628,12 +634,16 @@ export default function Task() {
                     </li>
                   </ul>
                   <div className="flex justify-center">
-                    <button className="mx-2 px-2 py-1 bg-blue-500 hover:bg-blue-800 text-white rounded-md">
+                    <button
+                      className="mx-2 px-2 py-1 bg-blue-500 hover:bg-blue-800 text-white rounded-md"
+                      type="submit"
+                    >
                       設定
                     </button>
                     <button
                       onClick={() => repeatDialogRef.current?.close()}
                       className="mx-2 px-2 py-1 bg-white border border-gray-200 hover:bg-gray-100 rounded-md"
+                      type="button"
                     >
                       閉じる
                     </button>
@@ -689,6 +699,7 @@ export default function Task() {
                   </button>
                 </Form>
                 <button
+                  type="button"
                   onClick={() => deleteDialogRef.current?.close()}
                   className="mx-2 px-2 py-1 bg-white border border-gray-200 hover:bg-gray-100 rounded-md"
                 >
