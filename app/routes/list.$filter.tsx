@@ -99,28 +99,34 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     const title = formData.get("title") as string;
     const isToday = formData.get("isToday") === "true";
     const dueDate = formData.get("dueDate") as string;
-    const repeatValue = formData.get("repeat") as string;
+    const repeatValue = formData.get("repeat") as RadioValue;
     let repeat: Repeat | undefined = undefined;
-    if (repeatValue === "none") {
-      repeat = undefined;
-    }
-    if (repeatValue === "everyday") {
-      repeat = { type: "weekly", dayOfTheWeeks: EveryDay };
-    }
-    if (repeatValue === "weekday") {
-      repeat = { type: "weekly", dayOfTheWeeks: WeekDay };
-    }
-    if (repeatValue === "everyweek") {
-      const checkedDay = EveryDay.filter((day) => {
-        return formData.get(`everyweek-${day}`) === "true";
-      });
-      repeat = { type: "weekly", dayOfTheWeeks: checkedDay };
-    }
-    if (repeatValue === "everymonth") {
-      repeat = {
-        type: "monthly",
-        days: [parseInt(formData.get("everymonth-day") as string)],
-      };
+    switch (repeatValue) {
+      case "everyday":
+        repeat = { type: "weekly", dayOfTheWeeks: EveryDay };
+        break;
+      case "weekday":
+        repeat = { type: "weekly", dayOfTheWeeks: WeekDay };
+        break;
+      case "everyweek":
+        const checkedDay = EveryDay.filter((day) => {
+          return formData.get(`everyweek-${day}`) === "true";
+        });
+        repeat =
+          checkedDay.length === 0
+            ? undefined
+            : { type: "weekly", dayOfTheWeeks: checkedDay };
+        break;
+      case "everymonth":
+        repeat = {
+          type: "monthly",
+          days: [parseInt(formData.get("everymonth-day") as string)],
+        };
+        break;
+      case "none":
+      default:
+        repeat = undefined;
+        break;
     }
     const task = await createTask({ title, isToday, dueDate, repeat });
     return json({ task });

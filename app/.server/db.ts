@@ -1,10 +1,10 @@
 import {
   addMonths,
-  format,
   formatISO,
   getDay,
   isSameMonth,
   isToday,
+  isValid,
   lastDayOfMonth,
   nextDay,
   parseISO,
@@ -52,6 +52,10 @@ const fakeTasks = {
   async create(values: TaskMutation) {
     const id = values.id || nanoid();
     const title = values.title || "";
+    const dueDate =
+      values.dueDate && isValid(parseISO(values.dueDate))
+        ? values.dueDate
+        : undefined;
     const isToday = values.isToday || false;
     const completed = values.completed || false;
     const createdAt = new Date().toISOString();
@@ -62,6 +66,7 @@ const fakeTasks = {
       ...values,
       id,
       title,
+      dueDate,
       isToday,
       completed,
       createdAt,

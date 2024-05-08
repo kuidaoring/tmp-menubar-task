@@ -1,5 +1,8 @@
-import type { ActionFunctionArgs, MetaFunction } from "@remix-run/node";
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  MetaFunction,
+} from "@remix-run/node";
 import { json } from "@remix-run/node";
 import {
   createStep,
@@ -8,14 +11,7 @@ import {
   updateStep,
   updateTask,
 } from "../.server/db";
-import {
-  EveryDay,
-  Repeat,
-  WeekDay,
-  getRepeatLabel,
-  isRepeatEveryday,
-  isRepeatWeekday,
-} from "~/task";
+import { EveryDay, Repeat, WeekDay, getRepeatLabel } from "~/task";
 import {
   Form,
   useFetcher,
@@ -34,7 +30,10 @@ import "react-datepicker/dist/react-datepicker.css";
 import { formatDate, getFormat } from "~/dateFormat";
 import { ja } from "date-fns/locale";
 import { startOfToday, subBusinessDays } from "date-fns";
-import RepeatDialog, { RepeatDialogHandle } from "~/components/RepeatDialog";
+import RepeatDialog, {
+  RadioValue,
+  RepeatDialogHandle,
+} from "~/components/RepeatDialog";
 
 type UpdatedStepTitleInfo = {
   title: string;
@@ -91,41 +90,37 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     return json({ task });
   }
   if (formData.get("type") === "updateRepeat") {
-    const repeat = formData.get("repeat") as string;
-    if (repeat === "none") {
-      const task = await updateTask(id, { repeat: undefined });
-      return json({ task });
-    }
-    if (repeat === "everyday") {
-      const task = await updateTask(id, {
-        repeat: { type: "weekly", dayOfTheWeeks: EveryDay },
-      });
-      return json({ task });
-    }
-    if (repeat === "weekday") {
-      const task = await updateTask(id, {
-        repeat: { type: "weekly", dayOfTheWeeks: WeekDay },
-      });
-      return json({ task });
-    }
-    if (repeat === "everyweek") {
-      const checkedDay = EveryDay.filter((day) => {
-        return formData.get(`everyweek-${day}`) === "true";
-      });
-      const task = await updateTask(id, {
-        repeat: { type: "weekly", dayOfTheWeeks: checkedDay },
-      });
-      return json({ task });
-    }
-    if (repeat === "everymonth") {
-      const task = await updateTask(id, {
-        repeat: {
+    const repeatValue = formData.get("repeat") as RadioValue;
+    let repeat: Repeat | undefined = undefined;
+    switch (repeatValue) {
+      case "everyday":
+        repeat = { type: "weekly", dayOfTheWeeks: EveryDay };
+        break;
+      case "weekday":
+        repeat = { type: "weekly", dayOfTheWeeks: WeekDay };
+        break;
+      case "everyweek":
+        const checkedDay = EveryDay.filter((day) => {
+          return formData.get(`everyweek-${day}`) === "true";
+        });
+        repeat =
+          checkedDay.length === 0
+            ? undefined
+            : { type: "weekly", dayOfTheWeeks: checkedDay };
+        break;
+      case "everymonth":
+        repeat = {
           type: "monthly",
           days: [parseInt(formData.get("everymonth-day") as string)],
-        },
-      });
-      return json({ task });
+        };
+        break;
+      case "none":
+      default:
+        repeat = undefined;
+        break;
     }
+    const task = await updateTask(id, { repeat: repeat });
+    return json({ task });
   }
   if (formData.get("type") === "toggleCompletedStep") {
     const stepId = formData.get("stepId") as string;
