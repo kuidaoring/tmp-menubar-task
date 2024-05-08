@@ -34,6 +34,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { formatDate, getFormat } from "~/dateFormat";
 import { ja } from "date-fns/locale";
 import { startOfToday, subBusinessDays } from "date-fns";
+import RepeatDialog, { RepeatDialogHandle } from "~/components/RepeatDialog";
 
 type UpdatedStepTitleInfo = {
   title: string;
@@ -253,7 +254,7 @@ function Task() {
   const dueDate = task.dueDate ? new Date(task.dueDate) : null;
   const datePickerRef = useRef<ReactDatePicker | null>(null);
 
-  const repeatDialogRef = useRef<HTMLDialogElement>(null);
+  const repeatDialogRef = useRef<RepeatDialogHandle>(null);
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
   return (
@@ -453,204 +454,16 @@ function Task() {
             >
               <RepeatLabel repeat={task.repeat} />
             </button>
-            <dialog
-              ref={repeatDialogRef}
-              onClick={(event) => {
-                if (event.target === repeatDialogRef.current) {
-                  repeatDialogRef.current?.close();
-                }
+            <fetcher.Form
+              method="post"
+              action={`/tasks/${task.id}`}
+              onSubmit={(event) => {
+                fetcher.submit(event.currentTarget);
+                repeatDialogRef.current?.close();
               }}
-              className="p-2 w-[60vh] bg-white border-2 border-gray-300 rounded-md text-center"
             >
-              <fetcher.Form
-                method="post"
-                action={`/tasks/${task.id}`}
-                onSubmit={(event) => {
-                  fetcher.submit(event.currentTarget);
-                  repeatDialogRef.current?.close();
-                }}
-              >
-                <input type="hidden" name="type" value="updateRepeat" />
-                <div>
-                  <p className="my-5">🔄</p>
-                  <p className="my-5">繰り返し</p>
-                  <ul className="text-left mx-2 mb-2">
-                    <li className="my-1">
-                      <input
-                        type="radio"
-                        name="repeat"
-                        value="everyday"
-                        id="repeat-everyday"
-                        defaultChecked={isRepeatEveryday(task.repeat)}
-                      />
-                      <label htmlFor="repeat-everyday" className="py-3 ms-2">
-                        毎日
-                      </label>
-                    </li>
-                    <li className="my-1">
-                      <input
-                        type="radio"
-                        name="repeat"
-                        value="weekday"
-                        id="repeat-weekday"
-                        defaultChecked={isRepeatWeekday(task.repeat)}
-                      />
-                      <label htmlFor="repeat-weekday" className="py-3 ms-2">
-                        平日
-                      </label>
-                    </li>
-                    <li className="my-1">
-                      <input
-                        type="radio"
-                        name="repeat"
-                        value="everyweek"
-                        id="repeat-everyweek"
-                        className="peer"
-                        defaultChecked={
-                          task.repeat?.type === "weekly" &&
-                          !isRepeatEveryday(task.repeat) &&
-                          !isRepeatWeekday(task.repeat)
-                        }
-                      />
-                      <label htmlFor="repeat-everyweek" className="py-3 ms-2">
-                        毎週
-                      </label>
-                      <div className="hidden peer-checked:block w-fit overflow-hidden mt-1 mb-2 ml-5 rounded-md border border-gray-300 divide-x">
-                        {[
-                          {
-                            label: "日",
-                            value: "sunday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("sunday"),
-                          },
-                          {
-                            label: "月",
-                            value: "monday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("monday"),
-                          },
-                          {
-                            label: "火",
-                            value: "tuesday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("tuesday"),
-                          },
-                          {
-                            label: "水",
-                            value: "wednesday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("wednesday"),
-                          },
-                          {
-                            label: "木",
-                            value: "thursday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("thursday"),
-                          },
-                          {
-                            label: "金",
-                            value: "friday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("friday"),
-                          },
-                          {
-                            label: "土",
-                            value: "saturday",
-                            checked:
-                              task.repeat?.type === "weekly" &&
-                              task.repeat?.dayOfTheWeeks.includes("saturday"),
-                          },
-                        ].map((day) => {
-                          return (
-                            <label
-                              htmlFor={`repeat-${day.value}`}
-                              className="inline-block p-1 has-[:checked]:bg-blue-500 has-[:checked]:text-white"
-                              key={`repeat-${day.value}`}
-                            >
-                              {day.label}
-                              <input
-                                type="checkbox"
-                                id={`repeat-${day.value}`}
-                                name={`everyweek-${day.value}`}
-                                value="true"
-                                className="hidden"
-                                defaultChecked={day.checked}
-                              />
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </li>
-                    <li className="my-1">
-                      <input
-                        type="radio"
-                        name="repeat"
-                        value="everymonth"
-                        id="repeat-everymonth"
-                        className="peer"
-                        defaultChecked={task.repeat?.type === "monthly"}
-                      />
-                      <label htmlFor="repeat-everymonth" className="py-3 ms-2">
-                        毎月
-                      </label>
-                      <div className="hidden peer-checked:block mt-1 mb-2 ml-5">
-                        <select
-                          name="everymonth-day"
-                          className="rounded py-1"
-                          defaultValue={
-                            task.repeat?.type === "monthly"
-                              ? task.repeat?.days[0]
-                              : undefined
-                          }
-                        >
-                          {Array.from({ length: 31 }, (_, i) => i + 1).map(
-                            (day) => {
-                              return (
-                                <option key={day} value={day}>
-                                  {day}日
-                                </option>
-                              );
-                            }
-                          )}
-                        </select>
-                      </div>
-                    </li>
-                    <li className="my-1">
-                      <input
-                        type="radio"
-                        name="repeat"
-                        value="none"
-                        id="repeat-none"
-                      />
-                      <label htmlFor="repeat-none" className="py-3 ms-2">
-                        なし
-                      </label>
-                    </li>
-                  </ul>
-                  <div className="flex justify-center">
-                    <button
-                      className="mx-2 px-2 py-1 bg-blue-500 hover:bg-blue-800 text-white rounded-md"
-                      type="submit"
-                    >
-                      設定
-                    </button>
-                    <button
-                      onClick={() => repeatDialogRef.current?.close()}
-                      className="mx-2 px-2 py-1 bg-white border border-gray-200 hover:bg-gray-100 rounded-md"
-                      type="button"
-                    >
-                      閉じる
-                    </button>
-                  </div>
-                </div>
-              </fetcher.Form>
-            </dialog>
+              <RepeatDialog task={task} ref={repeatDialogRef} />
+            </fetcher.Form>
           </div>
         </div>
         <div className="py-1">

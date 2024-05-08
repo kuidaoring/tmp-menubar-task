@@ -15,7 +15,7 @@ import {
   useParams,
 } from "@remix-run/react";
 import { forwardRef, useEffect, useRef, useState } from "react";
-import { Task, getRepeatLabel } from "~/task";
+import { EveryDay, Repeat, Task, WeekDay, getRepeatLabel } from "~/task";
 import { compareAsc, startOfToday } from "date-fns";
 
 import ReactDatePicker from "react-datepicker";
@@ -24,6 +24,10 @@ const DatePicker =
   ReactDatePicker;
 import "react-datepicker/dist/react-datepicker.css";
 import { ja } from "date-fns/locale";
+import RepeatDialog, {
+  RadioValue,
+  RepeatDialogHandle,
+} from "~/components/RepeatDialog";
 
 export const meta: MetaFunction = () => {
   return [
@@ -95,7 +99,30 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
     const title = formData.get("title") as string;
     const isToday = formData.get("isToday") === "true";
     const dueDate = formData.get("dueDate") as string;
-    const task = await createTask({ title, isToday, dueDate });
+    const repeatValue = formData.get("repeat") as string;
+    let repeat: Repeat | undefined = undefined;
+    if (repeatValue === "none") {
+      repeat = undefined;
+    }
+    if (repeatValue === "everyday") {
+      repeat = { type: "weekly", dayOfTheWeeks: EveryDay };
+    }
+    if (repeatValue === "weekday") {
+      repeat = { type: "weekly", dayOfTheWeeks: WeekDay };
+    }
+    if (repeatValue === "everyweek") {
+      const checkedDay = EveryDay.filter((day) => {
+        return formData.get(`everyweek-${day}`) === "true";
+      });
+      repeat = { type: "weekly", dayOfTheWeeks: checkedDay };
+    }
+    if (repeatValue === "everymonth") {
+      repeat = {
+        type: "monthly",
+        days: [parseInt(formData.get("everymonth-day") as string)],
+      };
+    }
+    const task = await createTask({ title, isToday, dueDate, repeat });
     return json({ task });
   }
   if (formData.get("type") === "toggleComplete") {
@@ -133,10 +160,14 @@ function List() {
     isPlannedPage ? startOfToday() : null
   );
 
+  const repeatDialogRef = useRef<RepeatDialogHandle>(null);
+  const [checkedRepeat, setCheckedRepeat] = useState<RadioValue>("none");
+
   useEffect(() => {
     if (!isAdding) {
       createFormRef.current?.reset();
       createInputRef.current?.focus();
+      setCheckedRepeat("none");
     }
   }, [isAdding]);
 
@@ -192,6 +223,27 @@ function List() {
               翌営業日
             </button>
           </DatePicker>
+          <button
+            type="button"
+            onClick={() => {
+              repeatDialogRef.current?.showModal();
+            }}
+            className={`mx-1 border-b-2 ${
+              checkedRepeat !== "none"
+                ? "border-blue-600"
+                : "border-transparent"
+            }`}
+          >
+            🔄
+          </button>
+          <RepeatDialog
+            ref={repeatDialogRef}
+            submitType="button"
+            onClick={(event, checked) => {
+              setCheckedRepeat(checked);
+              repeatDialogRef.current?.close();
+            }}
+          />
         </div>
       </Form>
       {taskGroups.length === 0 ? (
