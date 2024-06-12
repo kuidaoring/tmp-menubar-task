@@ -1,5 +1,5 @@
 import { ActionFunctionArgs, redirect } from "@remix-run/node";
-import { deleteTask } from "~/.server/db";
+import { deleteTask } from "~/.server/db/db";
 
 export const action = async ({ params }: ActionFunctionArgs) => {
   if (!params.id) {

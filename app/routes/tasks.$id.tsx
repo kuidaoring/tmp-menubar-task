@@ -10,7 +10,7 @@ import {
   getTask,
   updateStep,
   updateTask,
-} from "../.server/db";
+} from "../.server/db/db";
 import { EveryDay, Repeat, WeekDay, getRepeatLabel } from "~/task";
 import {
   Form,
@@ -125,7 +125,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   if (formData.get("type") === "toggleCompletedStep") {
     const stepId = formData.get("stepId") as string;
     const completed = formData.get("completed") === "true";
-    const task = updateStep(id, stepId, { completed });
+    const task = updateStep(stepId, { completed });
     return json({ task });
   }
   if (formData.get("type") === "addStep") {
@@ -136,12 +136,12 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
   if (formData.get("type") === "updateStepTitle") {
     const title = formData.get("title") as string;
     const stepId = formData.get("stepId") as string;
-    const task = updateStep(id, stepId, { title });
+    const task = updateStep(stepId, { title });
     return json({ task });
   }
   if (formData.get("type") === "deleteStep") {
     const stepId = formData.get("stepId") as string;
-    const task = deleteStep(id, stepId);
+    const task = deleteStep(stepId);
     return json({ task });
   }
 };

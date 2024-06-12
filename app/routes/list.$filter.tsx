@@ -4,7 +4,12 @@ import type {
   MetaFunction,
 } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { createTask, getTasks, isValidFilter, updateTask } from "../.server/db";
+import {
+  createTask,
+  getTasks,
+  isValidFilter,
+  updateTask,
+} from "../.server/db/db";
 import { formatDate, getFormat } from "../dateFormat";
 import {
   Form,
@@ -128,7 +133,7 @@ export const action = async ({ params, request }: ActionFunctionArgs) => {
         repeat = undefined;
         break;
     }
-    const task = await createTask({ title, isToday, dueDate, repeat });
+    const task = await createTask({ title, isToday, dueDate, repeat: repeat });
     return json({ task });
   }
   if (formData.get("type") === "toggleComplete") {
